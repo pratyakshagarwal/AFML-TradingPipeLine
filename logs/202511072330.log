@@ -1,0 +1,56 @@
+2025-11-07 23:30:17,000 [INFO] - --------------------------------------------------
+2025-11-07 23:30:17,002 [INFO] - Data Pipeline started at 202511072330
+2025-11-07 23:30:17,002 [INFO] - Asset: BTCUSDT | Bar type: volume
+2025-11-07 23:30:17,768 [INFO] - Connected to wss://stream.binance.com:9443/ws/btcusdt@trade
+2025-11-07 23:30:17,892 [INFO] - Saved 1 rows to data\btcusdt
+2025-11-07 23:30:27,890 [INFO] - Fetched 0 rows for BTCUSDT
+2025-11-07 23:30:27,893 [INFO] - Processing raw file: data/BTCUSDT\2025102617_tradedata.jsonl
+2025-11-07 23:30:27,986 [INFO] - Raw shape: (5000, 9)
+2025-11-07 23:30:28,012 [INFO] - Bars created: (87, 6)
+2025-11-07 23:30:28,025 [INFO] - Processing raw file: data/BTCUSDT\2025102820_tradedata.jsonl
+2025-11-07 23:30:29,816 [INFO] - Raw shape: (223239, 9)
+2025-11-07 23:30:30,792 [INFO] - Bars created: (7421, 6)
+2025-11-07 23:30:30,863 [INFO] - Processing raw file: data/BTCUSDT\2025102821_tradedata.jsonl
+2025-11-07 23:30:32,682 [INFO] - Raw shape: (250743, 9)
+2025-11-07 23:30:33,741 [INFO] - Bars created: (6219, 6)
+2025-11-07 23:30:33,800 [INFO] - Processing raw file: data/BTCUSDT\2025102822_tradedata.jsonl
+2025-11-07 23:30:34,050 [INFO] - Raw shape: (26018, 9)
+2025-11-07 23:30:34,164 [INFO] - Bars created: (839, 6)
+2025-11-07 23:30:34,180 [INFO] - Processing raw file: data/BTCUSDT\2025110713_tradedata.jsonl
+2025-11-07 23:30:34,204 [INFO] - Raw shape: (1, 9)
+2025-11-07 23:30:34,206 [INFO] - Bars created: (1, 6)
+2025-11-07 23:30:34,212 [INFO] - Processing raw file: data/BTCUSDT\2025110718_tradedata.jsonl
+2025-11-07 23:30:34,234 [INFO] - Raw shape: (2, 9)
+2025-11-07 23:30:34,236 [INFO] - Bars created: (1, 6)
+2025-11-07 23:30:34,242 [INFO] - Processing raw file: data/BTCUSDT\2025110719_tradedata.jsonl
+2025-11-07 23:30:34,261 [INFO] - Raw shape: (1, 9)
+2025-11-07 23:30:34,262 [INFO] - Bars created: (1, 6)
+2025-11-07 23:30:34,266 [INFO] - Processing raw file: data/BTCUSDT\2025110720_tradedata.jsonl
+2025-11-07 23:30:34,285 [INFO] - Raw shape: (3, 9)
+2025-11-07 23:30:34,286 [INFO] - Bars created: (1, 6)
+2025-11-07 23:30:34,291 [INFO] - Processing raw file: data/BTCUSDT\2025110723_tradedata.jsonl
+2025-11-07 23:30:34,309 [INFO] - Raw shape: (1, 9)
+2025-11-07 23:30:34,311 [INFO] - Bars created: (1, 6)
+2025-11-07 23:30:34,315 [INFO] - Total 9 bar files generated
+2025-11-07 23:30:34,316 [INFO] - Combining 13 CSV files
+2025-11-07 23:30:34,333 [INFO] - Loaded data/BTCUSDT\2025102617_tradebars.csv, shape=(86, 6)
+2025-11-07 23:30:34,338 [INFO] - Loaded data/BTCUSDT\2025102617_volumebars0.05.csv, shape=(86, 6)
+2025-11-07 23:30:34,365 [INFO] - Loaded data/BTCUSDT\2025102820_tradebars.csv, shape=(7420, 6)
+2025-11-07 23:30:34,391 [INFO] - Loaded data/BTCUSDT\2025102820_volumebars0.05.csv, shape=(7420, 6)
+2025-11-07 23:30:34,419 [INFO] - Loaded data/BTCUSDT\2025102821_tradebars.csv, shape=(6218, 6)
+2025-11-07 23:30:34,447 [INFO] - Loaded data/BTCUSDT\2025102821_volumebars0.05.csv, shape=(6218, 6)
+2025-11-07 23:30:34,464 [INFO] - Loaded data/BTCUSDT\2025102822_tradebars.csv, shape=(838, 6)
+2025-11-07 23:30:34,481 [INFO] - Loaded data/BTCUSDT\2025102822_volumebars0.05.csv, shape=(838, 6)
+2025-11-07 23:30:34,497 [INFO] - Loaded data/BTCUSDT\2025110713_volumebars0.05.csv, shape=(0, 6)
+2025-11-07 23:30:34,510 [INFO] - Loaded data/BTCUSDT\2025110718_volumebars0.05.csv, shape=(0, 6)
+2025-11-07 23:30:34,523 [INFO] - Loaded data/BTCUSDT\2025110719_volumebars0.05.csv, shape=(0, 6)
+2025-11-07 23:30:34,537 [INFO] - Loaded data/BTCUSDT\2025110720_volumebars0.05.csv, shape=(0, 6)
+2025-11-07 23:30:34,551 [INFO] - Loaded data/BTCUSDT\2025110723_volumebars0.05.csv, shape=(0, 6)
+2025-11-07 23:30:34,586 [INFO] - Combined dataset shape: (29124, 6)
+2025-11-07 23:30:34,614 [INFO] - Feature matrix created with shape: (29102, 18)
+2025-11-07 23:30:35,277 [INFO] - Detected 7871 events
+2025-11-07 23:30:41,095 [INFO] - Labeled 7871 valid bins
+2025-11-07 23:30:45,998 [INFO] - Computed sample weights for 7871 events
+2025-11-07 23:31:27,107 [INFO] - Bootstrapped 30 samples
+2025-11-07 23:31:27,107 [INFO] - Applying fractional differencing (d=0.6, thres=0.04)
+2025-11-07 23:31:47,689 [INFO] - Pipeline completed successfully for BTCUSDT
