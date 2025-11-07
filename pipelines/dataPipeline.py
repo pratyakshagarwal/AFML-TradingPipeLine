@@ -40,7 +40,7 @@ def gSamples(idx, events, removal):
     return [events[i] for i in idx if i not in removal]
 
 # returns a dataset which contains features, labels and weights
-def main(configs: Any) -> pd.DataFrame:
+def data_pipeline(configs: Any) -> pd.DataFrame:
     logger.info(f"{'-' * 50}")
     logger.info(f"Data Pipeline started at {dt.datetime.now().strftime("%Y%m%d%H%M")}")
     logger.info(f"Asset: {configs.asset} | Bar type: {configs.bar_type}")
@@ -195,7 +195,7 @@ def main(configs: Any) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    from config import PipelineConfig
-    dataset = main(configs=PipelineConfig())
+    from config import DataConfig
+    dataset = data_pipeline(configs=DataConfig())
     print(dataset.head())
     print(f"Dataset shape: {dataset.shape}")
