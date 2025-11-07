@@ -18,7 +18,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] - %(message)s",
     handlers=[
-        logging.FileHandler(f"logs/{dt.datetime.now('%Y%m%d%H%M')}.log"),
+        logging.FileHandler(f"logs/{dt.datetime.now().strftime("%Y%m%d%H%M")}.log"),
         logging.StreamHandler()
     ]
 )
@@ -42,7 +42,7 @@ def gSamples(idx, events, removal):
 # returns a dataset which contains features, labels and weights
 def main(configs: Any) -> pd.DataFrame:
     logger.info(f"{'-' * 50}")
-    logger.info(f"Data Pipeline started at {dt.datetime.now().strftime('%Y%m%d%H%M')}")
+    logger.info(f"Data Pipeline started at {dt.datetime.now().strftime("%Y%m%d%H%M")}")
     logger.info(f"Asset: {configs.asset} | Bar type: {configs.bar_type}")
 
     # Step 1: Data fetching
@@ -180,7 +180,8 @@ def main(configs: Any) -> pd.DataFrame:
             .drop_duplicates()
             .assign(
                 labels=labels["bin"].loc[valid_indexes].dropna(),
-                weights=clfW.loc[valid_indexes]
+                weights=clfW.loc[valid_indexes], 
+                t1=labeler.events_['t1'].loc[valid_indexes]
             )
         )
         logger.info(f"Final dataset ready → shape={dataset.shape}")
