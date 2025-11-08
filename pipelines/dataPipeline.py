@@ -74,7 +74,7 @@ def data_pipeline(configs: Any) -> pd.DataFrame:
             bar_path = os.path.join(raw_dir, f"{date}_{configs.bar_type}bars{configs.threshold}.csv")
             df_bars.to_csv(bar_path, index=False)
             bar_files.append(bar_path)
-            logger.info(f"Saved bars → {bar_path}")
+            logger.info(f"Saved bars -> {bar_path}")
 
         logger.info(f"Total {len(bar_files)} bar files generated")
 
@@ -166,7 +166,7 @@ def data_pipeline(configs: Any) -> pd.DataFrame:
 
         missing_indexes = df.index.difference(df_ffd.index)
         valid_indexes = gSamples(samples, labeler.t_events, missing_indexes)
-        logger.info(f"FFD complete → dropped {len(missing_indexes)} rows, kept {len(valid_indexes)}")
+        logger.info(f"FFD complete -> dropped {len(missing_indexes)} rows, kept {len(valid_indexes)}")
 
     except Exception as e:
         logger.exception(f"Error during fractional differencing: {e}")
@@ -184,7 +184,7 @@ def data_pipeline(configs: Any) -> pd.DataFrame:
                 t1=labeler.events_['t1'].loc[valid_indexes]
             )
         )
-        logger.info(f"Final dataset ready → shape={dataset.shape}")
+        logger.info(f"Final dataset ready -> shape={dataset.shape}")
         logger.info(f"Pipeline completed successfully for {configs.asset}")
 
         return dataset, logger
