@@ -61,7 +61,7 @@ class TripleBarrierMethod:
         events = self.events_.dropna(subset=['t1'])
         px = prices.reindex(events.index.union(events['t1'].values).drop_duplicates(), method='bfill')
         out = pd.DataFrame(index=events.index)
-        out['ret'] = px.loc[events['t1'].values].values / px.loc[events.index].values - 1
+        out['ret'] = px.loc[events['t1'].values].values / px.loc[events.index] - 1
         if 'side' in events: out['ret'] *= events['side']
         out['bin'] = np.sign(out['ret'])
         if 'side' in events: out.loc[out['ret'] <= 0, 'bin'] = 0
