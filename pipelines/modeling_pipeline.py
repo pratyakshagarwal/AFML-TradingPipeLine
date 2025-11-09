@@ -9,9 +9,11 @@ from sklearn.ensemble import RandomForestClassifier
 
 from src.evaluation.mda import featImpMDA
 from src.evaluation.kFold import cvScore, PurgedKFold
+from src.evaluation.sfi import auxFeatImpSFI, map_featImpSfi
+from src.evaluation.feat_pca import compare_imp, orthoFeats
 
 
-def main(configs, dataset: pd.DataFrame, logger):
+def main(configs, dataset: pd.DataFrame, logger, run):
     logger.info(f'-'*50)
     logger.info(f"Training Pipeline started at: {dt.datetime.now().strftime('%Y%m%d%H%M')}")
 
@@ -19,7 +21,7 @@ def main(configs, dataset: pd.DataFrame, logger):
     rf_clf = RandomForestClassifier()
 
     # Separate features, labels, and weights
-    X = dataset.drop(['labels', 'weights', 'timestamp'], axis=1)
+    X = dataset.drop(['labels', 't1', 'weights', 'timestamp'], axis=1)
     y = dataset['labels']
     t1 = dataset['t1']
     weights = dataset['weights']
@@ -46,8 +48,9 @@ def main(configs, dataset: pd.DataFrame, logger):
     logger.info(f"The score after {configs.cv} PurgedKFold CVs is: {score}")
 
     # confusion matrix plot
+    path = f'runs/{run}/results'
     try:
-        os.makedirs('results', exist_ok=True)
+        os.makedirs(path, exist_ok=True)
 
         c_matrix = confusion_matrix(
             y_true=y_test, y_pred=preds,
@@ -64,7 +67,7 @@ def main(configs, dataset: pd.DataFrame, logger):
         plt.ylabel('True Labels')
         plt.title('Confusion Matrix')
 
-        save_path = os.path.join('results', "confusion_matrix.png")
+        save_path = os.path.join(path, "confusion_matrix.png")
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
         plt.close()
@@ -78,20 +81,21 @@ def main(configs, dataset: pd.DataFrame, logger):
     if configs.model == 'tree':
         try:
             # Corrected the column drop (your original had a typo in the string)
-            feature_names = dataset.columns.drop(['t1', 'labels', 'weights'])
+            feature_names = dataset.columns.drop(['t1', 'labels', 'weights', 'timestamp'])
             fi = pd.DataFrame({
                 'feature': feature_names,
                 'importance': rf_clf.feature_importances_
             }).sort_values('importance', ascending=False)
 
             plt.figure(figsize=(8, max(4, 0.4 * len(fi))))
-            sns.barplot(x='importance', y='feature', data=fi, palette='Blues_r')
+            sns.barplot(x='importance', y='feature', data=fi, hue='feature',
+                         dodge=False, palette='Blues_r', legend=False)
             plt.title('Feature Importance (MDI)')
             plt.xlabel('Importance')
             plt.ylabel('Features')
             plt.tight_layout()
 
-            save_path = os.path.join('results', "mdi.png")
+            save_path = os.path.join(path, "mdi.png")
             plt.savefig(save_path, dpi=300)
             plt.close()
             logger.info(f"MDI feature importance saved at: {save_path}")
@@ -119,7 +123,7 @@ def main(configs, dataset: pd.DataFrame, logger):
         plt.title('Feature Importance (MDA)')
         plt.tight_layout()
 
-        save_path = os.path.join('results', 'mda.png')
+        save_path = os.path.join(path, 'mda.png')
         plt.savefig(save_path, dpi=300)
         plt.close()
         logger.info(f"MDA feature importance saved at: {save_path}")
@@ -127,11 +131,42 @@ def main(configs, dataset: pd.DataFrame, logger):
     except Exception as e:
         logger.exception(f"Error while calculating/plotting MDA feature importance: {e}")
 
+    # single feature importance
+    try:
+        # determining sfi throught cvscore method
+        imp = auxFeatImpSFI(featNames=feature_names, clf=rf_clf, trnsX=X,
+                            y=y, sample_weight=weights, scoring=configs.scoring, 
+                            pctEmbargo=configs.pctEmbargo, t1=t1, cv=configs.cv)
+        
+        # plotting and saving it in folder path
+        save_path = map_featImpSfi(imp, folder_path=path)
+        logger.info(f"SFI feature importanced saved at : {save_path}")
+
+    except Exception as e:
+        logger.exception(f"Error while calculating/plotting SFI feat imp: {e}")
+
+    # pca unsupervised feature importance
+    try:
+        # determing the feature importance using eigenvalues
+        dfp, eVal, eVecv = orthoFeats(dfX=X)
+
+        mdi = pd.Series(
+        rf_clf.feature_importances_,
+        index=[f'PC_{i+1}' for i in range(len(rf_clf.feature_importances_))]
+        )
+
+        # comparing pca unsupervised feature importance with mdi feature importance
+        save_path = compare_imp(eVal, mdi=mdi, save_path=path)
+    except Exception as e:
+        logger.exception(f"Error while calculating/comparing pca&mdi : {e}")
+
+
+
 if __name__ == '__main__':
     from pipelines.dataPipeline import data_pipeline
     from config import ModelConfig, DataConfig
     
     mconfig, dconfig = ModelConfig(), DataConfig()
-    dataset, logger = data_pipeline(dconfig)
-    main(mconfig, dataset, logger)
+    dataset, logger, run = data_pipeline(dconfig)
+    main(mconfig, dataset, logger, run)
     
