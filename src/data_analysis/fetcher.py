@@ -146,4 +146,4 @@ if __name__ == "__main__":
         # async for batch in fetcher.stream():
         #     print(batch)
         await fetcher.fetch(nRows=500000)
-asyncio.run(main())
+# asyncio.run(main())
