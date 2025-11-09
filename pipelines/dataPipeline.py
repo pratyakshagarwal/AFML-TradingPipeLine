@@ -13,12 +13,15 @@ from src.data_analysis.sample_weights import SampleWeightGenerator
 from src.data_analysis.bootstrapping import SequentialBootstrapping
 
 
+run = dt.datetime.now().strftime("%Y%m%d%H%M")
+log_path = f"runs/{run}/logs"
+os.makedirs(log_path)
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] - %(message)s",
     handlers=[
-        logging.FileHandler(f"logs/{dt.datetime.now().strftime("%Y%m%d%H%M")}.log"),
+        logging.FileHandler(f"{log_path}/{dt.datetime.now().strftime("%Y%m%d%H%M")}.log"),
         logging.StreamHandler()
     ]
 )
@@ -187,7 +190,8 @@ def data_pipeline(configs: Any) -> pd.DataFrame:
         logger.info(f"Final dataset ready -> shape={dataset.shape}")
         logger.info(f"Pipeline completed successfully for {configs.asset}")
 
-        return dataset, logger
+        dataset.to_csv(f"runs/{run}/dataset.csv")
+        return dataset, logger, run
 
     except Exception as e:
         logger.exception(f"Error during dataset assembly: {e}")
