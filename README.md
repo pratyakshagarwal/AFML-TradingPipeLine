@@ -20,3 +20,6 @@ Implements a reproducible experimentation framework with:
 - Model training loops
 - Evaluation metrics (PnL, Sharpe, drawdown, hit-rate, etc.)
 - Config-driven hyperparameter tuning
+
+3. Backtesting Engine (IN Progress)
+4. Infrencing/Live Simulation (IN Progress)
