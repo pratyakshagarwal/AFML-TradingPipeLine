@@ -66,6 +66,10 @@ class DataConfig:
 @dataclass
 class ModelConfig:
     """Configuration for model training, evaluation, and feature importance."""
+
+    model_params = {'n_estimators':100, 'criterion':'gini', 'max_depth':None, 
+                    'min_samples_split':2, 'min_samples_leaf':1}
+    
     model: str = "tree"                  # 'tree', 'xgb', 'lgbm', 'catboost', etc.
     scoring: str = "accuracy"            # metric for evaluation
     cv: int = 5                          # number of Purged K-Folds
@@ -95,3 +99,24 @@ if __name__ == "__main__":
     configs = DataConfig()
     configs.validate()
     configs.summary()
+
+
+@dataclass
+class BTConfig:
+    cpcv_splits = 6
+    cpcv_test_splits = 2
+    cpcv_embargo = 0.01
+    purge_window = 30
+
+    lookback_vol = 20
+    K_pt_base =  2.5
+    K_sl_base =  1.5
+    alpha = 0.5
+    horizon_bars = 30
+    initial_equity = 100000.0
+    risk_per_trade = 0.01
+    base_unit = 1.0
+    max_open_trades = 200
+    event_threshold = 0.5
+    max_size:int=30
+    min_size:int=0.01
