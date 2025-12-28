@@ -1,4 +1,6 @@
 import os
+import json
+import uuid
 import asyncio
 import logging
 import pandas as pd
@@ -13,193 +15,179 @@ from src.data_analysis.sample_weights import SampleWeightGenerator
 from src.data_analysis.bootstrapping import SequentialBootstrapping
 
 
-run = dt.datetime.now().strftime("%Y%m%d%H%M")
-log_path = f"runs/{run}/logs"
-os.makedirs(log_path)
-# Logging setup
+# -------------------- RUN SETUP --------------------
+
+RUN_ID = str(uuid.uuid4().hex[:8])
+RUN_ROOT = os.path.join("runs", RUN_ID)
+DARGS_DIR = os.path.join(RUN_ROOT, "dargs")
+LOG_DIR = os.path.join(DARGS_DIR, "logs")
+DATASET_DIR = os.path.join(RUN_ROOT, "artifacts")
+
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(DATASET_DIR, exist_ok=True)
+
+
+# -------------------- LOGGING --------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] - %(message)s",
     handlers=[
-        logging.FileHandler(f"{log_path}/{dt.datetime.now().strftime("%Y%m%d%H%M")}.log"),
+        logging.FileHandler(os.path.join(LOG_DIR, "pipeline.log")),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
 
+# -------------------- METADATA --------------------
+
+def persist_run_metadata(configs: Any) -> None:
+    meta = {
+        "run_id": RUN_ID,
+        "created_at": dt.datetime.utcnow().isoformat(),
+        "pipeline": "data_pipeline",
+        "config_class": configs.__class__.__name__
+    }
+
+    with open(os.path.join(DARGS_DIR, "run_meta.json"), "w") as f:
+        json.dump(meta, f, indent=4)
+
+    with open(os.path.join(DARGS_DIR, "configs.json"), "w") as f:
+        json.dump(vars(configs), f, indent=4, default=str)
+
+
+# -------------------- PIPELINE --------------------
+
 async def fetch_data(configs: Any) -> None:
-    """Fetch raw trade/order data asynchronously."""
-    try:
-        fetcher = DataFetcher(asset=configs.asset, type=configs.type, interval_ms=configs.interval_ms)
-        await fetcher.fetch(nRows=configs.nRows)
-        logger.info(f"Fetched {configs.nRows:,} rows for {configs.asset}")
-    except Exception as e:
-        logger.exception(f"Error fetching data: {e}")
-        raise
+    fetcher = DataFetcher(
+        asset=configs.asset,
+        type=configs.type,
+        interval_ms=configs.interval_ms
+    )
+    await fetcher.fetch(nRows=configs.nRows)
+    logger.info(f"Fetched {configs.nRows:,} rows for {configs.asset}")
+
 
 def gSamples(idx, events, removal):
-    """Filter out indices corresponding to removed samples."""
     return [events[i] for i in idx if i not in removal]
 
-# returns a dataset which contains features, labels and weights
-def data_pipeline(configs: Any) -> pd.DataFrame:
-    logger.info(f"{'-' * 50}")
-    logger.info(f"Data Pipeline started at {dt.datetime.now().strftime("%Y%m%d%H%M")}")
-    logger.info(f"Asset: {configs.asset} | Bar type: {configs.bar_type}")
 
-    # Step 1: Data fetching
+def data_pipeline(configs: Any) -> None:
+    logger.info("-" * 60)
+    logger.info(f"DATA PIPELINE STARTED | RUN_ID={RUN_ID}")
+
+    persist_run_metadata(configs)
+
+    # Step 1: Fetch data
     asyncio.run(fetch_data(configs))
 
     raw_dir = f"data/{configs.asset}"
     if not os.path.exists(raw_dir):
-        logger.error(f"Data directory not found: {raw_dir}")
-        raise FileNotFoundError(f"Missing directory {raw_dir}")
+        raise FileNotFoundError(f"Missing raw data directory: {raw_dir}")
 
     # Step 2: Generate bars
     bar_files = []
-    try:
-        for name in os.listdir(raw_dir):
-            if not name.endswith(".jsonl"):
-                continue
+    for name in os.listdir(raw_dir):
+        if not name.endswith(".jsonl"):
+            continue
 
-            path = os.path.join(raw_dir, name)
-            logger.info(f"Processing raw file: {path}")
-            df = pd.read_json(path, lines=True).drop_duplicates(subset=["trade_id"])
-            logger.info(f"Raw shape: {df.shape}")
+        path = os.path.join(raw_dir, name)
+        df = pd.read_json(path, lines=True).drop_duplicates(subset=["trade_id"])
 
-            # Create bars
-            bg = BarGenerator(threshold=configs.threshold, bar_type=configs.bar_type)
-            df_bars = bg.generate(df)
-            logger.info(f"Bars created: {df_bars.shape}")
+        bg = BarGenerator(threshold=configs.threshold, bar_type=configs.bar_type)
+        df_bars = bg.generate(df)
 
-            date = name.split("_")[0]
-            bar_path = os.path.join(raw_dir, f"{date}_{configs.bar_type}bars{configs.threshold}.csv")
-            df_bars.to_csv(bar_path, index=False)
-            bar_files.append(bar_path)
-            logger.info(f"Saved bars -> {bar_path}")
+        date = name.split("_")[0]
+        bar_path = os.path.join(
+            DATASET_DIR, f"{date}_{configs.bar_type}bars_{configs.threshold}.csv"
+        )
+        df_bars.to_csv(bar_path, index=False)
+        bar_files.append(bar_path)
 
-        logger.info(f"Total {len(bar_files)} bar files generated")
+        logger.info(f"Bars saved -> {bar_path}")
 
-    except Exception as e:
-        logger.exception(f"Error generating bars: {e}")
-        raise
+    # Step 3: Combine + features
+    dfs = [pd.read_csv(f).dropna() for f in bar_files]
+    df = (
+        pd.concat(dfs, ignore_index=True)
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
 
-    # Step 3: Combine bar files and feature engineering
-    try:
-        csv_files = [os.path.join(raw_dir, f) for f in os.listdir(raw_dir) if f.endswith(".csv")]
-        logger.info(f"Combining {len(csv_files)} CSV files")
+    df = make_features(df, window=configs.window)
+    logger.info(f"Feature matrix shape: {df.shape}")
 
-        dfs = []
-        for f in csv_files:
-            temp = pd.read_csv(f).dropna()
-            dfs.append(temp)
-            logger.info(f"Loaded {f}, shape={temp.shape}")
-
-        df = pd.concat(dfs, ignore_index=True).sort_values("timestamp").reset_index(drop=True)
-        logger.info(f"Combined dataset shape: {df.shape}")
-
-        # Feature creation
-        df = make_features(df, window=configs.window)
-        logger.info(f"Feature matrix created with shape: {df.shape}")
-
-    except Exception as e:
-        logger.exception(f"Error during feature generation: {e}")
-        raise
+    pth = os.path.join(DATASET_DIR, "unprocessed_data.parquet")
+    df.to_parquet(path=pth)
 
     # Step 4: Triple Barrier Labeling
-    try:
-        labeler = TripleBarrierMethod(
-            pt_sl=configs.pt_sl,
-            min_ret=configs.min_ret,
-            event_specific=configs.event_specific
-        )
-        # detect special events on which we will place trades
-        labeler.detect_events(df, threshold=configs.threshold)
-        logger.info(f"Detected {len(labeler.t_events)} events")
+    labeler = TripleBarrierMethod(
+        pt_sl=configs.pt_sl,
+        min_ret=configs.min_ret,
+        event_specific=configs.event_specific
+    )
 
+    labeler.detect_events(df, threshold=configs.threshold)
+    trgt = df["close"].pct_change().abs()
 
-        trgt = df["close"].pct_change().abs()
-        n = len(df)
-        # generate vertical bars
-        t1 = pd.Series([min(i + configs.h, n - 1) for i in range(n)], name="t1")
+    n = len(df)
+    t1 = pd.Series([min(i + configs.h, n - 1) for i in range(n)], name="t1")
 
-        # apply vertical (termination) and horizontal barriers (stop loss and profit cap)
-        labeler.apply_barriers(df["close"], trgt=trgt, t1=t1)
-        labels = labeler.get_bins(df["close"])
-        logger.info(f"Labeled {labels['bin'].notna().sum()} valid bins")
+    labeler.apply_barriers(df["close"], trgt=trgt, t1=t1)
+    labels = labeler.get_bins(df["close"])
 
-    except Exception as e:
-        logger.exception(f"Error during labeling: {e}")
-        raise
+    # Step 5: Sample weights
+    closeIdx = pd.Index(labeler.t_events)
+    t1_series = pd.Series(labeler.events_["t1"], index=labeler.t_events)
 
-    # Step 5: Compute sample weights
-    try:
-        closeIdx = df.index
-        t1_series = pd.Series(labeler.events_["t1"], index=labeler.t_events, dtype="float64")
+    w_gen = SampleWeightGenerator(
+        closeIdx=closeIdx,
+        t1=t1_series,
+        molecule=labeler.t_events
+    )
 
-        # compute sample weights bases on uniquessness and timedecaying 
-        w_gen = SampleWeightGenerator(closeIdx=closeIdx, t1=t1_series, molecule=labeler.t_events)
-        weights_raw = w_gen._mpSampleW(df["close"])
-        clfW = w_gen.getTimeDecay(weights_raw, clfLastW=configs.clfLastW)
-        logger.info(f"Computed sample weights for {len(clfW)} events")
+    weights_raw = w_gen._mpSampleW(df["close"])
+    clfW = w_gen.getTimeDecay(weights_raw, clfLastW=configs.clfLastW)
 
-    except Exception as e:
-        logger.exception(f"Error generating sample weights: {e}")
-        raise
-
-    # Step 6: Bootstrapping for sample selection
-    try:
-        # bootstapping using numba
-        bootstrapper = SequentialBootstrapping(barIx=closeIdx, t1=t1_series)
-        samples = bootstrapper._seqbootstrap_numba_tqdm(sLength=configs.sLength)
-        logger.info(f"Bootstrapped {len(samples)} samples")
-
-    except Exception as e:
-        logger.exception(f"Error in bootstrapping: {e}")
-        raise
+    # Step 6: Bootstrapping
+    bootstrapper = SequentialBootstrapping(barIx=closeIdx, t1=t1_series)
+    samples = bootstrapper._seqbootstrap_numba_tqdm(sLength=configs.sLength)
 
     # Step 7: Fractional differencing
-    try:
-        logger.info(f"Applying fractional differencing (d={configs.d}, thres={configs.thres})")
-        # fractional differentialtion the features which contains randomness and noise
-        df_ffd = fracDiff_FFD(df[configs.fracdiff_cols], d=configs.d, thres=configs.thres)
-        for col in configs.fracdiff_cols:
-            df[col] = df_ffd[col]
+    df_ffd = fracDiff_FFD(
+        df[configs.fracdiff_cols],
+        d=configs.d,
+        thres=configs.thres
+    )
 
-        missing_indexes = df.index.difference(df_ffd.index)
-        valid_indexes = gSamples(samples, labeler.t_events, missing_indexes)
-        logger.info(f"FFD complete -> dropped {len(missing_indexes)} rows, kept {len(valid_indexes)}")
+    for col in configs.fracdiff_cols:
+        df[col] = df_ffd[col]
 
-    except Exception as e:
-        logger.exception(f"Error during fractional differencing: {e}")
-        raise
+    missing = df.index.difference(df_ffd.index)
+    valid_idx = gSamples(samples, labeler.t_events, missing)
 
-    # Step 8: Final dataset assembly
-    try:
-        dataset = (
-            df.loc[valid_indexes]
-            .sort_index()
-            .drop_duplicates()
-            .assign(
-                labels=labels["bin"].loc[valid_indexes].dropna(),
-                weights=clfW.loc[valid_indexes], 
-                t1=labeler.events_['t1'].loc[valid_indexes]
-            )
+    # Step 8: Final dataset
+    dataset = (
+        df.loc[valid_idx]
+        .sort_index()
+        .drop_duplicates()
+        .assign(
+            labels=labels["bin"].loc[valid_idx],
+            weights=clfW.loc[valid_idx],
+            t1=labeler.events_["t1"].loc[valid_idx]
         )
-        logger.info(f"Final dataset ready -> shape={dataset.shape}")
-        logger.info(f"Pipeline completed successfully for {configs.asset}")
+    )
 
-        dataset.to_csv(f"runs/{run}/dataset.csv")
-        return dataset, logger, run
+    dataset_path = os.path.join(DATASET_DIR, "dataset.parquet")
+    dataset.to_parquet(dataset_path)
 
-    except Exception as e:
-        logger.exception(f"Error during dataset assembly: {e}")
-        raise
+    logger.info(f"FINAL DATASET SAVED -> {dataset_path}")
+    logger.info(f"PIPELINE COMPLETED | RUN_ID={RUN_ID}")
 
+
+# -------------------- ENTRYPOINT --------------------
 
 if __name__ == "__main__":
     from config import DataConfig
-    dataset = data_pipeline(configs=DataConfig())
-    print(dataset.head())
-    print(f"Dataset shape: {dataset.shape}")
+    data_pipeline(DataConfig())
