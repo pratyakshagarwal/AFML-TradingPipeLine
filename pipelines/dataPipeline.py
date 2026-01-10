@@ -19,7 +19,8 @@ from src.data_analysis.bootstrapping import SequentialBootstrapping
 
 RUN_ID = str(uuid.uuid4().hex[:8])
 RUN_ROOT = os.path.join("runs", RUN_ID)
-DARGS_DIR = os.path.join(RUN_ROOT, "dargs")
+DARGS_ID = str(uuid.uuid4().hex[:3])
+DARGS_DIR = os.path.join(RUN_ROOT, f"dargs_{DARGS_ID}")
 LOG_DIR = os.path.join(DARGS_DIR, "logs")
 DATASET_DIR = os.path.join(RUN_ROOT, "artifacts")
 
@@ -69,8 +70,8 @@ async def fetch_data(configs: Any) -> None:
     logger.info(f"Fetched {configs.nRows:,} rows for {configs.asset}")
 
 
-def gSamples(idx, events, removal):
-    return [events[i] for i in idx if i not in removal]
+def gSamples(idx, events, missing):
+    return [events[i] for i in idx if i not in missing]
 
 
 def data_pipeline(configs: Any) -> None:
@@ -78,9 +79,10 @@ def data_pipeline(configs: Any) -> None:
     logger.info(f"DATA PIPELINE STARTED | RUN_ID={RUN_ID}")
 
     persist_run_metadata(configs)
-
-    # Step 1: Fetch data
-    asyncio.run(fetch_data(configs))
+    
+    if configs.nRows != 0:
+        # Step 1: Fetch data
+        asyncio.run(fetch_data(configs))
 
     raw_dir = f"data/{configs.asset}"
     if not os.path.exists(raw_dir):
@@ -150,10 +152,6 @@ def data_pipeline(configs: Any) -> None:
     weights_raw = w_gen._mpSampleW(df["close"])
     clfW = w_gen.getTimeDecay(weights_raw, clfLastW=configs.clfLastW)
 
-    # Step 6: Bootstrapping
-    bootstrapper = SequentialBootstrapping(barIx=closeIdx, t1=t1_series)
-    samples = bootstrapper._seqbootstrap_numba_tqdm(sLength=configs.sLength)
-
     # Step 7: Fractional differencing
     df_ffd = fracDiff_FFD(
         df[configs.fracdiff_cols],
@@ -162,23 +160,32 @@ def data_pipeline(configs: Any) -> None:
     )
 
     for col in configs.fracdiff_cols:
-        df[col] = df_ffd[col]
+        df.loc[df_ffd.index, col] = df_ffd[col]
 
     missing = df.index.difference(df_ffd.index)
-    valid_idx = gSamples(samples, labeler.t_events, missing)
+    valid_idx = labeler.events_.index.drop(missing, errors="ignore") 
+    logger.info(f"{len(labeler.events_)}, {len(missing)}")
+    t1_valid = t1.loc[valid_idx]
+
+    # Step 6: Bootstrapping
+    bootstrapper = SequentialBootstrapping(barIx=valid_idx, t1=t1_valid)
+    samples = bootstrapper._seqbootstrap_numba_tqdm(sLength=configs.sLength)
+
+    samples = gSamples(idx=samples, events=labeler.t_events, missing=missing)
 
     # Step 8: Final dataset
     dataset = (
-        df.loc[valid_idx]
+        df.loc[samples]
         .sort_index()
         .drop_duplicates()
         .assign(
-            labels=labels["bin"].loc[valid_idx],
-            weights=clfW.loc[valid_idx],
-            t1=labeler.events_["t1"].loc[valid_idx]
+            labels=labels["bin"].loc[samples],
+            weights=clfW.loc[samples],
+            t1=labeler.events_["t1"].loc[samples]
         )
     )
 
+    # dataset.drop_duplicates().dropna().reset_index()
     dataset_path = os.path.join(DATASET_DIR, "dataset.parquet")
     dataset.to_parquet(dataset_path)
 
