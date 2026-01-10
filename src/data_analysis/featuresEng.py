@@ -1,6 +1,6 @@
 import numpy as np
 def make_features(df, window):
-    df = df.drop(['open', 'high', 'low'])
+    df = df.drop(['open', 'high', 'low'], axis=1)
     # log return 
     df['ret'] = np.log(df['close'] / df['close'].shift(1))
 
