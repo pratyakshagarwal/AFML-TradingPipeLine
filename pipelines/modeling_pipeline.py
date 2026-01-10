@@ -11,8 +11,7 @@ Design principles:
 - Single-file, readable research code
 """
 
-import os
-import json
+import json, uuid
 import pickle
 import logging
 import datetime as dt
@@ -44,7 +43,8 @@ def init_run(run_id: str):
     root = Path("runs") / run_id
     artifacts = root / "artifacts"
 
-    margs = root / "margs"
+    MARGS_ID = str(uuid.uuid4().hex[:3])
+    margs = root / f"margs_{MARGS_ID}"
     logs = margs / "logs"
     results = artifacts / "results"
 
