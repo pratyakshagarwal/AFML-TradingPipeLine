@@ -21,22 +21,22 @@ class DataConfig:
     threshold: int = 0.05                                   
 
     # features enginering
-    window: int = 20                # rolling window size for features
+    window: int = 30               # rolling window size for features
 
     # labeling the dataset using triple barrier method
     pt_sl: List[float] = field(default_factory=lambda: [1, 1])  # [stop loss, profit cap]
-    min_ret: float = 0.0                                        # minimum return
+    min_ret: float = 0                                        # minimum return
     event_specific: bool = True                                
     h: int = 30                                                 # holding period (number of bars ahead)
 
     # to generate sample weights 
     clfLastW: float = 0.8    # how to much to decay accorrding to time (1 -> no decay | 0 -> complete decay)
 
-    sLength: int = 3000        # number of samples to bootstrap
+    sLength: int = 5000      # number of samples to bootstrap
     
     # fractional differentiation
     fracdiff_cols: List[str] = field(default_factory=lambda: ["close"]) # columns to frac diff
-    d: float = 0.6                        # how much to (1-> complete | 0 -> no diff)
+    d: float = 0.7                       # how much to (1-> complete | 0 -> no diff)
     thres: float = 0.04                   
 
     data_dir: str = "data"
@@ -71,7 +71,7 @@ class ModelConfig:
                     'min_samples_split':2, 'min_samples_leaf':1}
     
     model: str = "tree"                  # 'tree', 'xgb', 'lgbm', 'catboost', etc.
-    scoring: str = "accuracy"            # metric for evaluation
+    scoring: str = "neg_log_loss"            # metric for evaluation
     cv: int = 5                          # number of Purged K-Folds
     pctEmbargo: float = 0.01             # percent embargo between folds
     labels: List[Any] = field(default_factory=lambda: [0, 1, -1])  # depends on labeling
@@ -94,12 +94,6 @@ class ModelConfig:
             print(f"{k:20}: {v}")
         print("=============================\n")
 
-# Example usage
-if __name__ == "__main__":
-    configs = DataConfig()
-    configs.validate()
-    configs.summary()
-
 
 @dataclass
 class BTConfig:
@@ -108,7 +102,7 @@ class BTConfig:
     cpcv_embargo = 0.01
     purge_window = 30
 
-    lookback_vol = 20
+    lookback_vol = 30
     K_pt_base =  2.5
     K_sl_base =  1.5
     alpha = 0.5
@@ -116,7 +110,18 @@ class BTConfig:
     initial_equity = 100000.0
     risk_per_trade = 0.01
     base_unit = 1.0
-    max_open_trades = 200
-    event_threshold = 0.5
+    max_open_trades = 100
+    event_threshold = 0.05
     max_size:int=30
     min_size:int=0.01
+    k:int=1.25
+    lamda:int=0.2
+    f:int=0.0005
+    borrow_rate:int=0.08
+
+
+# Example usage
+if __name__ == "__main__":
+    configs = DataConfig()
+    configs.validate()
+    configs.summary()
