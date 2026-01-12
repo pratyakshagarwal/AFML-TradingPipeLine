@@ -1,0 +1,10 @@
+/__pycache__
+/data
+
+/pipelines/__pycache__
+
+/src/__init__.py
+/src/__pycache__
+/src/backtest/__pycache__
+/src/data_analysis/__pycache__
+/src/evaluation/__pycache__
