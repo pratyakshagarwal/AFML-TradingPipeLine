@@ -32,6 +32,8 @@ def featImpMDA(clf,X,y,cv,sample_weight,t1,pctEmbargo,scoring='neg_log_loss'):
             scr1.loc[i,j]=accuracy_score(y1,pred,sample_weight=w1.values)
     imp=(-scr1).add(scr0,axis=0)
     if scoring=='neg_log_loss':imp=imp/-scr1
-    else:imp=imp/(1.-scr1)
+    else:
+        denom = np.maximum(1. - scr1, 1e-10)
+        imp=imp/denom
     imp=pd.concat({'mean':imp.mean(),'std':imp.std()*imp.shape[0]**-.5},axis=1)
     return imp,scr0.mean()
