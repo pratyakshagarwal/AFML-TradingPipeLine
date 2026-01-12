@@ -14,6 +14,7 @@ class SampleWeightGenerator:
         + molecule[-1] is the date of the last event on which the weight will be computed 
         Any event that starts before t1[molecule].max() impacts the count.
         """
+        if molecule is None: molecule = t1.index
         # 1) find events that span the period [molecule[0], molecule[-1]]
         t1 = t1.fillna(closeIdx[-1])                 # unclosed events still must impact other weights
         t1 = t1[t1 >= molecule[0]]                   # events that end at or after molecule[0]
